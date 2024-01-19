@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
-	"github.com/richinsley/comfy2go/graphapi"
+	"github.com/olaola-chat/comfy2go/graphapi"
 )
 
 type QueuedItemStoppedReason string

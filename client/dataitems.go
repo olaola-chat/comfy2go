@@ -1,6 +1,6 @@
 package client
 
-import "github.com/richinsley/comfy2go/graphapi"
+import "github.com/olaola-chat/comfy2go/graphapi"
 
 // There may be other DataOutput types.  We defeinitely need a text type
 
