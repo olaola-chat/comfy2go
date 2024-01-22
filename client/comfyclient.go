@@ -172,7 +172,6 @@ func (c *ComfyClient) OnWindowSocketMessage(msg string) {
 	if err != nil {
 		log.Println("Deserializing Status Message:", err)
 	}
-
 	switch message.Type {
 	case "status":
 		s := message.Data.(*WSMessageDataStatus)
@@ -252,7 +251,9 @@ func (c *ComfyClient) OnWindowSocketMessage(msg string) {
 			mdata := &PromptMessageData{
 				NodeID: s.Node,
 				Images: *s.Output["images"],
-				Gifs:   *s.Output["gifs"],
+			}
+			if _, ok := s.Output["gifs"]; ok {
+				mdata.Gifs = *s.Output["gifs"]
 			}
 			m := PromptMessage{
 				Type:    "data",
