@@ -2,7 +2,6 @@ package graphapi
 
 import (
 	"fmt"
-	"log"
 )
 
 // GraphNode represents the encapsulation of an individual functionality within a Graph
@@ -16,7 +15,7 @@ type GraphNode struct {
 	Mode               int                     `json:"mode"`
 	Title              string                  `json:"title"`
 	InternalProperties *map[string]interface{} `json:"properties"` // node properties, not value properties!
-	WidgetValues       []interface{}           `json:"widgets_values"`
+	WidgetValues       interface{}             `json:"widgets_values"`
 	Color              string                  `json:"color"`
 	BGColor            string                  `json:"bgcolor"`
 	Inputs             []Slot                  `json:"inputs,omitempty"`
@@ -67,21 +66,8 @@ func (n *GraphNode) GetPropertyWithName(name string) Property {
 
 func (n *GraphNode) GetPropertesByIndex() []Property {
 	retv := make([]Property, len(n.Properties))
-	lastindex := -1
 	for _, v := range n.Properties {
-		index := v.Index()
-		if index >= 0 {
-			// some properties are added after deserializing and won't have a index
-			// Image upload is an example of this
-			lastindex = v.Index()
-			retv[lastindex] = v
-		} else {
-			if v.TypeString() != "IMAGEUPLOAD" {
-				log.Printf("Property with unknown target index of type %s\n", v.TypeString())
-			}
-			// assume lastindex + 1
-			retv[lastindex+1] = v
-		}
+		retv = append(retv, v)
 	}
 	return retv
 }

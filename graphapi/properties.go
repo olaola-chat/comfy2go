@@ -1,8 +1,6 @@
 package graphapi
 
 import (
-	"errors"
-	"fmt"
 	"log"
 	"math"
 	"strconv"
@@ -22,17 +20,11 @@ type Property interface {
 	Optional() bool
 	Settable() bool
 	Name() string
-	SetTargetWidget(node *GraphNode, index int)
-	GetTargetWidget() int
-	GetTargetNode() *GraphNode
 	GetValue() interface{}
 	SetValue(v interface{}) error
 	Serializable() bool
 	SetSerializable(bool)
 	AttachSecondaryProperty(p Property)
-	Index() int
-	SetIndex(index int)
-	TargetIndex() int
 
 	UpdateParent(parent Property)
 	ToIntProperty() (*IntProperty, bool)
@@ -46,15 +38,14 @@ type Property interface {
 }
 
 type BaseProperty struct {
-	parent             Property
-	name               string
-	optional           bool
-	target_node        *GraphNode
-	target_value_index int
-	serializable       bool
-	secondaries        []Property
-	override_property  interface{} // if non-nil, this value will be serialized
-	index              int
+	parent            Property
+	name              string
+	optional          bool
+	target_node       *GraphNode
+	serializable      bool
+	secondaries       []Property
+	override_property interface{} // if non-nil, this value will be serialized
+	value             interface{}
 }
 
 func (b *BaseProperty) UpdateParent(parent Property) {
@@ -76,67 +67,36 @@ func (b *BaseProperty) AttachSecondaryProperty(p Property) {
 	b.secondaries = append(b.secondaries, p)
 }
 
-func (b *BaseProperty) SetTargetWidget(node *GraphNode, index int) {
-	b.target_node = node
-	b.target_value_index = index
-}
-
-func (b *BaseProperty) GetTargetWidget() int {
-	return b.target_value_index
-}
-
-func (b *BaseProperty) GetTargetNode() *GraphNode {
-	return b.target_node
-}
-
 func (b *BaseProperty) GetValue() interface{} {
-	if b.override_property != nil {
-		return b.override_property
-	}
-
-	if b.target_node != nil {
-		return b.target_node.WidgetValues[b.target_value_index]
-	}
-	return nil
+	return b.value
 }
 
 // SetValue calls the protocol implementation for valueFromString to get
 // the actual value that will be set.  valueFromString should perform
 // conversion to it's native type and constrain it when needed
 func (b *BaseProperty) SetValue(v interface{}) error {
-	vs := fmt.Sprintf("%v", v)
-	val := b.parent.valueFromString(vs)
-	if val == nil {
-		return errors.New("could not get converted type")
-	}
-	if b.target_node != nil {
-		b.target_node.WidgetValues[b.target_value_index] = val
-	} else {
-		return errors.New("Property has no target node")
-	}
+	b.value = v
+	// vs := fmt.Sprintf("%v", v)
+	// val := b.parent.valueFromString(vs)
+	// if val == nil {
+	// 	return errors.New("could not get converted type")
+	// }
+	// if b.target_node != nil {
+	// 	b.target_node.WidgetValues[b.target_value_index] = val
+	// } else {
+	// 	return errors.New("Property has no target node")
+	// }
 
-	// if there are secondaries, set those too
-	if b.secondaries != nil {
-		for _, p := range b.secondaries {
-			err := p.SetValue(val)
-			if err != nil {
-				return err
-			}
-		}
-	}
+	// // if there are secondaries, set those too
+	// if b.secondaries != nil {
+	// 	for _, p := range b.secondaries {
+	// 		err := p.SetValue(val)
+	// 		if err != nil {
+	// 			return err
+	// 		}
+	// 	}
+	// }
 	return nil
-}
-
-func (b *BaseProperty) Index() int {
-	return b.index
-}
-
-func (b *BaseProperty) SetIndex(index int) {
-	b.index = index
-}
-
-func (b *BaseProperty) TargetIndex() int {
-	return b.target_value_index
 }
 
 func (b *BaseProperty) ToIntProperty() (*IntProperty, bool) {
@@ -189,9 +149,9 @@ type BoolProperty struct {
 	LabelOff string
 }
 
-func newBoolProperty(input_name string, optional bool, data interface{}, index int) *Property {
+func newBoolProperty(input_name string, optional bool, data interface{}) *Property {
 	c := &BoolProperty{
-		BaseProperty: BaseProperty{name: input_name, optional: optional, serializable: true, index: index, target_value_index: -1},
+		BaseProperty: BaseProperty{name: input_name, optional: optional, serializable: true, value: data},
 		Default:      false,
 	}
 	c.parent = c
@@ -243,9 +203,9 @@ type IntProperty struct {
 	hasRange bool
 }
 
-func newIntProperty(input_name string, optional bool, data interface{}, index int) *Property {
+func newIntProperty(input_name string, optional bool, data interface{}) *Property {
 	c := &IntProperty{
-		BaseProperty: BaseProperty{name: input_name, optional: optional, serializable: true, index: index, target_value_index: -1},
+		BaseProperty: BaseProperty{name: input_name, optional: optional, serializable: true, value: data},
 		Default:      0,
 		Min:          0,
 		Max:          math.MaxInt64,
@@ -318,9 +278,9 @@ type FloatProperty struct {
 	hasRange bool
 }
 
-func newFloatProperty(input_name string, optional bool, data interface{}, index int) *Property {
+func newFloatProperty(input_name string, optional bool, data interface{}) *Property {
 	c := &FloatProperty{
-		BaseProperty: BaseProperty{name: input_name, optional: optional, serializable: true, index: index, target_value_index: -1},
+		BaseProperty: BaseProperty{name: input_name, optional: optional, serializable: true, value: data},
 		Default:      0,
 		Min:          0,
 		Max:          math.MaxFloat64,
@@ -389,9 +349,9 @@ type StringProperty struct {
 	Multiline bool
 }
 
-func newStringProperty(input_name string, optional bool, data interface{}, index int) *Property {
+func newStringProperty(input_name string, optional bool, data interface{}) *Property {
 	c := &StringProperty{
-		BaseProperty: BaseProperty{name: input_name, optional: optional, serializable: true, index: index, target_value_index: -1},
+		BaseProperty: BaseProperty{name: input_name, optional: optional, serializable: true, value: nil},
 		Default:      "",
 		Multiline:    false,
 	}
@@ -430,21 +390,15 @@ func (p *StringProperty) valueFromString(value string) interface{} {
 
 type ComboProperty struct {
 	BaseProperty
-	Values []string
+	Values []interface{}
 }
 
-func newComboProperty(input_name string, optional bool, input []interface{}, index int) *Property {
+func newComboProperty(input_name string, optional bool, input []interface{}) *Property {
 	c := &ComboProperty{
-		BaseProperty: BaseProperty{name: input_name, optional: optional, serializable: true, index: index, target_value_index: -1},
+		BaseProperty: BaseProperty{name: input_name, optional: optional, serializable: true, value: nil},
 	}
 	c.parent = c
-
-	c.Values = make([]string, 0)
-	for _, v := range input {
-		if s, ok := v.(string); ok {
-			c.Values = append(c.Values, s)
-		}
-	}
+	c.Values = append(c.Values, input...)
 	var retv Property = c
 	return &retv
 }
@@ -493,9 +447,9 @@ type ImageUploadProperty struct {
 	TargetProperty *ComboProperty
 }
 
-func newImageUploadProperty(input_name string, target *ComboProperty, index int) *Property {
+func newImageUploadProperty(input_name string, target *ComboProperty) *Property {
 	c := &ImageUploadProperty{
-		BaseProperty:   BaseProperty{name: input_name, optional: false, serializable: true, override_property: target.name, index: index, target_value_index: -1},
+		BaseProperty:   BaseProperty{name: input_name, optional: false, serializable: true, override_property: target.name, value: nil},
 		TargetProperty: target,
 	}
 	c.parent = c
@@ -529,9 +483,9 @@ type UnknownProperty struct {
 	TypeName string
 }
 
-func newUnknownProperty(input_name string, optional bool, typename string, index int) *Property {
+func newUnknownProperty(input_name string, optional bool, typename string) *Property {
 	c := &UnknownProperty{
-		BaseProperty: BaseProperty{name: input_name, optional: optional, serializable: true, index: index, target_value_index: -1},
+		BaseProperty: BaseProperty{name: input_name, optional: optional, serializable: true, value: nil},
 		TypeName:     typename,
 	}
 	c.parent = c
@@ -555,7 +509,7 @@ func (p *UnknownProperty) valueFromString(value string) interface{} {
 	return nil
 }
 
-func NewPropertyFromInput(input_name string, optional bool, input *interface{}, index int) *Property {
+func NewPropertyFromInput(input_name string, optional bool, input *interface{}) *Property {
 	// Convert the pointer back to an interface
 	dereferenced := *input
 
@@ -568,20 +522,20 @@ func NewPropertyFromInput(input_name string, optional bool, input *interface{}, 
 
 		// the first item is either an array of strings (a combo), or the property type
 		if ptype, ok := slice[0].([]interface{}); ok {
-			return newComboProperty(input_name, optional, ptype, index)
+			return newComboProperty(input_name, optional, ptype)
 		} else {
 			if stype, ok := slice[0].(string); ok {
 				switch stype {
 				case "STRING":
-					return newStringProperty(input_name, optional, slice[1], index)
+					return newStringProperty(input_name, optional, slice[1])
 				case "INT":
-					return newIntProperty(input_name, optional, slice[1], index)
+					return newIntProperty(input_name, optional, slice[1])
 				case "FLOAT":
-					return newFloatProperty(input_name, optional, slice[1], index)
+					return newFloatProperty(input_name, optional, slice[1])
 				case "BOOLEAN":
-					return newBoolProperty(input_name, optional, stype, index)
+					return newBoolProperty(input_name, optional, stype)
 				default:
-					return newUnknownProperty(input_name, optional, stype, index)
+					return newUnknownProperty(input_name, optional, stype)
 				}
 			}
 		}

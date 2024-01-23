@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"reflect"
 
 	"sort"
 	"strconv"
@@ -151,68 +152,109 @@ func (t *Graph) CreateNodeProperties(node_objects *NodeObjects) *[]string {
 			// get the display name and description
 			n.DisplayName = nobject.DisplayName
 			n.Description = nobject.Description
-
-			props := nobject.GetSettableProperties()
-			for pindex, prop := range props {
-				// convert to actual property type, deep copy
-				// store a pointer to the property in the node's
-				// correct Input
-				switch prop.TypeString() {
-				case "STRING":
-					np := *prop.(*StringProperty)
-					np.UpdateParent(&np)
-					np.SetTargetWidget(n, pindex)
-					n.Properties[prop.Name()] = &np
-					n.affixPropertyToInputSlot(prop.Name(), &np)
-				case "FLOAT":
-					np := *prop.(*FloatProperty)
-					np.UpdateParent(&np)
-					np.SetTargetWidget(n, pindex)
-					n.Properties[prop.Name()] = &np
-					n.affixPropertyToInputSlot(prop.Name(), &np)
-				case "COMBO":
-					np := *prop.(*ComboProperty)
-					np.UpdateParent(&np)
-					np.SetTargetWidget(n, pindex)
-					n.Properties[prop.Name()] = &np
-					n.affixPropertyToInputSlot(prop.Name(), &np)
-				case "INT":
-					np := *prop.(*IntProperty)
-					np.UpdateParent(&np)
-					np.SetTargetWidget(n, pindex)
-					n.Properties[prop.Name()] = &np
-					n.affixPropertyToInputSlot(prop.Name(), &np)
-				case "BOOLEAN":
-					np := *prop.(*BoolProperty)
-					np.UpdateParent(&np)
-					np.SetTargetWidget(n, pindex)
-					n.Properties[prop.Name()] = &np
-					n.affixPropertyToInputSlot(prop.Name(), &np)
-				case "UNKNOWN":
-					log.Println("UNKNOWN property type in settable field")
-					np := *prop.(*UnknownProperty)
-					np.UpdateParent(&np)
-					np.SetTargetWidget(n, pindex)
-					n.Properties[prop.Name()] = &np
-					n.affixPropertyToInputSlot(prop.Name(), &np)
-				}
+			if n.WidgetValues == nil {
+				continue
 			}
-			if len(n.WidgetValues) != len(props) {
-				// If the count of WidgetValues is not the same as props there may be potential issues
-				// which may arrise here if not handled properly.  An example is LoadImage and LoadImageMask where
-				// there is a widget "choose file to upload" whose field points to the
-				// property that the upload would be set to.  This widget is added in web/extensions/core/uploadImage.js
-				if nobject.Name == "LoadImage" || nobject.Name == "LoadImageMask" {
-					// create an imageuploader property and point to it's associated COMBO property
-					targetProp := n.GetPropertyWithName("image")
-					if targetProp != nil {
-						np := newImageUploadProperty("choose file to upload", targetProp.(*ComboProperty), len(n.Properties))
-						n.Properties["choose file to upload"] = *np
-					} else {
-						log.Println("Cannot find \"image\" property")
+			if reflect.TypeOf(n.WidgetValues).Kind() == reflect.Slice {
+				widget_values := n.WidgetValues.([]interface{})
+				props := nobject.GetSettableProperties()
+				for pindex, prop := range props {
+					// convert to actual property type, deep copy
+					// store a pointer to the property in the node's
+					// correct Input
+					switch prop.TypeString() {
+					case "STRING":
+						np := *prop.(*StringProperty)
+						np.UpdateParent(&np)
+						np.SetValue(widget_values[pindex])
+						n.Properties[prop.Name()] = &np
+						n.affixPropertyToInputSlot(prop.Name(), &np)
+					case "FLOAT":
+						np := *prop.(*FloatProperty)
+						np.UpdateParent(&np)
+						np.SetValue(widget_values[pindex])
+						n.Properties[prop.Name()] = &np
+						n.affixPropertyToInputSlot(prop.Name(), &np)
+					case "COMBO":
+						np := *prop.(*ComboProperty)
+						np.UpdateParent(&np)
+						np.SetValue(widget_values[pindex])
+						n.Properties[prop.Name()] = &np
+						n.affixPropertyToInputSlot(prop.Name(), &np)
+					case "INT":
+						np := *prop.(*IntProperty)
+						np.UpdateParent(&np)
+						np.SetValue(widget_values[pindex])
+						n.Properties[prop.Name()] = &np
+						n.affixPropertyToInputSlot(prop.Name(), &np)
+					case "BOOLEAN":
+						np := *prop.(*BoolProperty)
+						np.UpdateParent(&np)
+						np.SetValue(widget_values[pindex])
+						n.Properties[prop.Name()] = &np
+						n.affixPropertyToInputSlot(prop.Name(), &np)
+					case "UNKNOWN":
+						log.Println("UNKNOWN property type in settable field")
+						np := *prop.(*UnknownProperty)
+						np.UpdateParent(&np)
+						np.SetValue(widget_values[pindex])
+						n.Properties[prop.Name()] = &np
+						n.affixPropertyToInputSlot(prop.Name(), &np)
 					}
-				} else {
-					log.Printf("size missmatch for %s\n", n.Type)
+				}
+				if len(widget_values) != len(props) {
+					// If the count of WidgetValues is not the same as props there may be potential issues
+					// which may arrise here if not handled properly.  An example is LoadImage and LoadImageMask where
+					// there is a widget "choose file to upload" whose field points to the
+					// property that the upload would be set to.  This widget is added in web/extensions/core/uploadImage.js
+					if nobject.Name == "LoadImage" || nobject.Name == "LoadImageMask" {
+						// create an imageuploader property and point to it's associated COMBO property
+						targetProp := n.GetPropertyWithName("image")
+						if targetProp != nil {
+							np := newImageUploadProperty("choose file to upload", targetProp.(*ComboProperty))
+							n.Properties["choose file to upload"] = *np
+						} else {
+							log.Println("Cannot find \"image\" property")
+						}
+					} else {
+						log.Printf("size missmatch for %s\n", n.Type)
+					}
+				}
+			} else if reflect.TypeOf(n.WidgetValues).Kind() == reflect.Map {
+				//map
+				widget_values := n.WidgetValues.(map[string]interface{})
+				for wname, value := range widget_values {
+					valueType := reflect.TypeOf(value).Kind()
+					switch valueType {
+					case reflect.String:
+						np := &StringProperty{}
+						np.SetSerializable(true)
+						np.UpdateParent(np)
+						np.SetValue(value)
+						n.Properties[wname] = np
+						n.affixPropertyToInputSlot(wname, np)
+					case reflect.Float64:
+						np := &FloatProperty{}
+						np.SetSerializable(true)
+						np.UpdateParent(np)
+						np.SetValue(value)
+						n.Properties[wname] = np
+						n.affixPropertyToInputSlot(wname, np)
+					case reflect.Int:
+						np := &IntProperty{}
+						np.SetSerializable(true)
+						np.UpdateParent(np)
+						np.SetValue(value)
+						n.Properties[wname] = np
+						n.affixPropertyToInputSlot(wname, np)
+					case reflect.Bool:
+						np := &BoolProperty{}
+						np.SetSerializable(true)
+						np.UpdateParent(np)
+						np.SetValue(value)
+						n.Properties[wname] = np
+						n.affixPropertyToInputSlot(wname, np)
+					}
 				}
 			}
 		} else {
@@ -263,14 +305,12 @@ func (t *Graph) CreateNodeProperties(node_objects *NodeObjects) *[]string {
 								}
 								// copy the property and assign it the node's "value" property
 								np := duplicateProperty(first_property)
-								np.SetIndex(pindex)
 								primitive_node.Properties["value"] = np
 							} else {
 								// copy the property and add the node's "value" property as a secondary
 								p := target_node.Inputs[primitive_node_output_link.TargetSlot].Property
 								if p != nil {
 									newp := duplicateProperty(p)
-									newp.SetIndex(pindex)
 									primitive_node.Properties["value"].AttachSecondaryProperty(newp)
 								}
 							}
@@ -364,6 +404,7 @@ func NewGraphFromJsonReader(r io.Reader, node_objects *NodeObjects) (*Graph, *[]
 	if err != nil {
 		return nil, nil, err
 	}
+
 	missing := graph.CreateNodeProperties(node_objects)
 	if missing != nil && len(*missing) != 0 {
 		err = errors.New("missing node types")

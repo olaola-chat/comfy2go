@@ -144,10 +144,9 @@ func (n *NodeObjects) PopulateInputProperties() {
 		o.InputPropertiesByID = make(map[string]*Property)
 		o.InputProperties = make([]*Property, 0)
 		index := int(0)
-
 		for _, k := range o.Input.OrderedRequired {
 			p := o.Input.Required[k]
-			nprop := NewPropertyFromInput(k, false, p, index)
+			nprop := NewPropertyFromInput(k, false, p)
 			index++
 			if nprop != nil {
 				o.InputProperties = append(o.InputProperties, nprop)
@@ -159,7 +158,7 @@ func (n *NodeObjects) PopulateInputProperties() {
 
 			// handle seed and noise_seed int controls
 			if (*nprop).Name() == "seed" || (*nprop).Name() == "noise_seed" && (*nprop).TypeString() == "INT" {
-				ns_prop := NewPropertyFromInput("control_after_generate", (*nprop).Optional(), &car, index)
+				ns_prop := NewPropertyFromInput("control_after_generate", (*nprop).Optional(), &car)
 				index++
 				(*ns_prop).SetSerializable(false)
 				o.InputProperties = append(o.InputProperties, ns_prop)
@@ -170,7 +169,7 @@ func (n *NodeObjects) PopulateInputProperties() {
 		if o.Input.Optional != nil {
 			for _, k := range o.Input.OrderedOptional {
 				p := o.Input.Optional[k]
-				nprop := NewPropertyFromInput(k, true, p, index)
+				nprop := NewPropertyFromInput(k, true, p)
 				index++
 				if nprop != nil {
 					o.InputProperties = append(o.InputProperties, nprop)
@@ -182,7 +181,7 @@ func (n *NodeObjects) PopulateInputProperties() {
 
 				// handle seed and noise_seed int controls
 				if (*nprop).Name() == "seed" || (*nprop).Name() == "noise_seed" && (*nprop).TypeString() == "INT" {
-					ns_prop := NewPropertyFromInput("control_after_generate", (*nprop).Optional(), &car, index)
+					ns_prop := NewPropertyFromInput("control_after_generate", (*nprop).Optional(), &car)
 					index++
 					o.InputProperties = append(o.InputProperties, ns_prop)
 					o.InputPropertiesByID["control_after_generate"] = ns_prop

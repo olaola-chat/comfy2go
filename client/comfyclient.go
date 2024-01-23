@@ -250,7 +250,9 @@ func (c *ComfyClient) OnWindowSocketMessage(msg string) {
 		if qi != nil {
 			mdata := &PromptMessageData{
 				NodeID: s.Node,
-				Images: *s.Output["images"],
+			}
+			if _, ok := s.Output["images"]; ok {
+				mdata.Images = *s.Output["images"]
 			}
 			if _, ok := s.Output["gifs"]; ok {
 				mdata.Gifs = *s.Output["gifs"]
