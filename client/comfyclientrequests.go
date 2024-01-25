@@ -284,6 +284,10 @@ func (c *ComfyClient) QueuePrompt(graph *graphapi.Graph) (*QueueItem, error) {
 
 	body, _ := io.ReadAll(resp.Body)
 
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("prompt fails, resp:%s", string(body))
+	}
+
 	// create the queue item
 	item := &QueueItem{
 		Workflow: graph,
