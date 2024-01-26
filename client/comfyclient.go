@@ -40,6 +40,7 @@ type ComfyClient struct {
 	queuecount            int
 	callbacks             *ComfyClientCallbacks
 	lastProcessedPromptID string
+	promptID2Res          map[string]bool //记录执行结果
 }
 
 // NewComfyClient creates a new instance of a Comfy2go client
@@ -58,9 +59,10 @@ func NewComfyClient(server_address string, server_port int, callbacks *ComfyClie
 			MaxRetry:       5, // Maximum number of retries
 			managerstarted: false,
 		},
-		initialized: false,
-		queuecount:  0,
-		callbacks:   callbacks,
+		initialized:  false,
+		queuecount:   0,
+		callbacks:    callbacks,
+		promptID2Res: make(map[string]bool),
 	}
 	// golang uses mark-sweep GC, so this circular reference should be fine
 	retv.webSocket.Callback = retv
@@ -218,7 +220,9 @@ func (c *ComfyClient) OnWindowSocketMessage(msg string) {
 					c.callbacks.QueuedItemStopped(c, qi, QueuedItemStoppedReasonFinished)
 				}
 				delete(c.queueditems, qi.PromptID)
-				qi.Messages <- m
+				if _, ok := c.promptID2Res[qi.PromptID]; !ok {
+					qi.Messages <- m
+				}
 			} else {
 				node := qi.Workflow.GetNodeById(*s.Node)
 				m := PromptMessage{
@@ -265,6 +269,7 @@ func (c *ComfyClient) OnWindowSocketMessage(msg string) {
 				c.callbacks.QueuedItemDataAvailable(c, qi, mdata)
 			}
 			qi.Messages <- m
+			c.promptID2Res[s.PromptID] = true
 		}
 	case "execution_interrupted":
 		s := message.Data.(*WSMessageExecutionInterrupted)
